@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Letter Pairs Trainer</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+    select, button { font-size: 16px; margin: 10px; padding: 5px; }
+    .trainer { margin-top: 30px; font-size: 32px; cursor: pointer; user-select: none; }
+    #status { margin-top: 20px; font-size: 18px; }
+  </style>
+</head>
+
+<body>
+    <h1 style="font-size: 2.5rem; color: #4CAF50; margin-bottom: 20px;">Letter Pairs Trainer</h1>
+
+    <div style="margin-bottom: 20px;">
+        <label for="startingLetters" style="font-size: 1.2rem; color: #555;">Choose starting letter(s):</label>
+        <select id="startingLetters" multiple size="6" style="height: auto; width: 100%; max-width: 300px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; margin-top: 10px;">
+        </select>
+    </div>
+
+	<button onclick="markAsWrong()" style="background-color: #f44336; color: white; border: none; padding: 10px 20px; font-size: 1rem; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">
+		Mark as Wrong
+	</button>
+
+    <button onclick="startTraining()" style="background-color: #4CAF50; color: white; border: none; padding: 10px 20px; font-size: 1rem; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">
+        Start Training
+    </button>
+
+	<button onclick="markAsRight()" style="background-color: #4CAF50; color: white; border: none; padding: 10px 20px; font-size: 1rem; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;">
+		Mark as Right
+	</button>
+
+    <div class="trainer" id="trainerDisplay" onclick="handleClick(event)" style="display:none; margin-top: 30px; font-size: 2rem; color: #333; padding: 20px; border: 2px dashed #4CAF50; border-radius: 10px; max-width: 300px; margin: 30px auto; background-color: #f9f9f9; cursor: pointer;">
+    </div>
+
+    <div id="status" style="margin-top: 20px; font-size: 1.2rem; color: #555;"></div>
+
+    <script type="module">
+		function markAsRight() {
+			if (trainingPairs.length === 0) return;
+
+			trainingPairs.shift(); // Remove the current pair
+			statusDiv.textContent = `Remaining: ${trainingPairs.length}`;
+			showCurrent();
+		}
+		window.markAsRight = markAsRight;
+		function markAsWrong() {
+			if (trainingPairs.length === 0) return;
+
+			const [pair, word] = trainingPairs.shift();
+			trainingPairs.push([pair, word]); // Send to back of the queue
+			statusDiv.textContent = `Remaining: ${trainingPairs.length}`;
+			showCurrent();
+		}
+		window.markAsWrong = markAsWrong;
+
+
+        let letterPairs = {};
+        fetch('./letterpairs.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load letterpairs.json');
+                }
+                return response.json();
+            })
+            .then(data => {
+                letterPairs = data;
+            })
+            .catch(error => {
+                console.error('Error loading letterpairs.json:', error);
+            });
+
+        const startingLettersSelect = document.getElementById('startingLetters');
+        const trainerDisplay = document.getElementById('trainerDisplay');
+        const statusDiv = document.getElementById('status');
+
+        let trainingPairs = [];
+        let showingWord = false;
+
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        letters.split('').forEach(letter => {
+            const option = document.createElement('option');
+            option.value = letter;
+            option.textContent = letter;
+            startingLettersSelect.appendChild(option);
+        });
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+
+
+        const checkWordsCheckbox = document.createElement('input');
+        checkWordsCheckbox.type = 'checkbox';
+        checkWordsCheckbox.id = 'checkWords';
+        checkWordsCheckbox.style.margin = '10px';
+
+        const checkWordsLabel = document.createElement('label');
+        checkWordsLabel.htmlFor = 'checkWords';
+        checkWordsLabel.textContent = 'Check words instead of letter pairs';
+        checkWordsLabel.style.fontSize = '1rem';
+        checkWordsLabel.style.color = '#555';
+
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.style.marginBottom = '20px';
+        checkboxContainer.appendChild(checkWordsCheckbox);
+        checkboxContainer.appendChild(checkWordsLabel);
+
+        document.body.insertBefore(checkboxContainer, startingLettersSelect.parentElement);
+
+        function showCurrent() {
+            if (trainingPairs.length === 0) {
+                trainerDisplay.style.display = 'none';
+                statusDiv.textContent = 'Training complete! 🎉';
+                return;
+            }
+
+            trainerDisplay.style.display = 'block';
+            trainerDisplay.textContent = checkWordsCheckbox.checked ? trainingPairs[0][1] : trainingPairs[0][0];
+            showingWord = false;
+        }
+
+        function startTraining() {
+            const selectedOptions = Array.from(startingLettersSelect.selectedOptions);
+            if (selectedOptions.length === 0) {
+                alert('Please select at least one starting letter.');
+                return;
+            }
+            const selectedLetters = selectedOptions.map(opt => opt.value);
+
+            trainingPairs = Object.entries(letterPairs)
+            .filter(([pair]) => selectedLetters.includes(pair[0][0]));
+
+            if (trainingPairs.length === 0) {
+                alert('No pairs found for the selected letters.');
+                return;
+            }
+
+            shuffleArray(trainingPairs);
+            showingWord = false;
+            statusDiv.textContent = `Remaining: ${trainingPairs.length}`;
+            showCurrent();
+        }
+
+        window.startTraining = startTraining;
+
+        function handleClick(event) {
+            const rect = trainerDisplay.getBoundingClientRect();
+            const clickX = event.clientX;
+
+            if (!showingWord) {
+                trainerDisplay.textContent = checkWordsCheckbox.checked ? trainingPairs[0][0] : trainingPairs[0][1]; // Toggle display
+                showingWord = true;
+            } else {
+				trainerDisplay.textContent = checkWordsCheckbox.checked ? trainingPairs[0][1] : trainingPairs[0][0]; // Toggle display
+                showingWord = false;
+            }
+        }
+
+		window.handleClick = handleClick;
+
+        document.addEventListener('keydown', (event) => {
+            if (trainingPairs.length === 0) return;
+
+            if (event.code === 'Space') {
+                if (!showingWord) {
+                    trainerDisplay.textContent = checkWordsCheckbox.checked ? trainingPairs[0][0] : trainingPairs[0][1]; // Toggle display
+                    showingWord = true;
+                }
+                event.preventDefault(); // prevent scrolling
+            } else if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') {
+                const isRightSide = event.code === 'ArrowRight';
+                const [pair, word] = trainingPairs.shift();
+
+                if (!isRightSide) {
+                    trainingPairs.push([pair, word]); // If incorrect, send to back
+                }
+
+                statusDiv.textContent = `Remaining: ${trainingPairs.length}`;
+                showCurrent();
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'Space' && showingWord) {
+                trainerDisplay.textContent = checkWordsCheckbox.checked ? trainingPairs[0][1] : trainingPairs[0][0]; // Toggle display
+                showingWord = false;
+            }
+        });
+    </script>
+</body>
+</html>
